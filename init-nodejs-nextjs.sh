@@ -10,13 +10,16 @@ PROJECT_NAME="${1}"
 
 ## 1. 引数を使ってプロジェクトのフォルダをつくる
 [ ! -e "${PROJECT_NAME}" ] \
-    && mkdir "${PROJECT_NAME}"
+    && mkdir "${PROJECT_NAME}" \
+    && cd "${PROJECT_NAME}"
 
 ## 2. docker-compose.yaml を生成する
-cd "${PROJECT_NAME}"
 cat <<DOCKER-COMPOSE >docker-compose.yaml
 version: '3'
 services:
+  # ----------------------------------------
+  # Application
+  # ----------------------------------------
   ${PROJECT_NAME}_app:
     container_name: ${PROJECT_NAME}_app
     build:
@@ -25,9 +28,12 @@ services:
     environment:
       - TZ=Asia/Tokyo
     volumes:
-      - ./app/${PROJECT_NAME}:/work
+      - ./app/src:/work
     ports:
       - 3000:3000
+  # ----------------------------------------
+  # Reverse proxy
+  # ----------------------------------------
   ${PROJECT_NAME}_https:
     container_name: ${PROJECT_NAME}_https
     image: steveltn/https-portal:latest
@@ -47,21 +53,20 @@ services:
     restart: always
 DOCKER-COMPOSE
 
-## 3. app フォルダをつくる
+## 3. app フォルダにDockerfile を生成する
 [ ! -e app ] \
     && mkdir app
 
-## 4. app フォルダにDockerfile を生成する
 cat <<DOCKERFILE >app/Dockerfile
 FROM node:latest
 WORKDIR /work
 DOCKERFILE
 
-## 5. 実行環境にプロジェクトのソースコードを展開する
-[ ! -e app/"${PROJECT_NAME}" ] \
-    && git clone https://github.com/nextauthjs/next-auth-example.git app/"${PROJECT_NAME}" \
-    && cd app/"${PROJECT_NAME}" \
+## 4. 実行環境にプロジェクトのソースコードを展開する
+[ ! -e app/src ] \
+    && git clone https://github.com/nextauthjs/next-auth-example.git app/src \
+    && cd app/src \
     && npm install next-pwa
 
-## 6. 実行環境でアプリを起動する
+## 5. 実行環境でアプリを起動する
 docker-compose up -d && docker logs "${PROJECT_NAME}"_app -f
